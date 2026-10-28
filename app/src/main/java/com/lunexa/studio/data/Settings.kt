@@ -32,6 +32,8 @@ data class AppSettings(
     val subscriberGoal: Long = 100,
     val accent: Int = 0,
     val youtubeConnected: Boolean = false,
+    /** Ссылка или @имя канала для режима открытых данных. */
+    val youtubeChannelInput: String = "",
 )
 
 val AppJson = Json {

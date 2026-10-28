@@ -142,14 +142,20 @@ fun HomeScreen(nav: NavHostController) {
                 }
                 if (ytc != null && connector != null) {
                     if (connector.busy) androidx.compose.material3.CircularProgressIndicator(Modifier.padding(12.dp).size(22.dp), strokeWidth = 2.dp)
-                    else IconButton(onClick = { connector.connect() }) { Icon(Icons.Outlined.Sync, tr("Обновить", "Refresh")) }
+                    else IconButton(onClick = { connector.refresh() }) { Icon(Icons.Outlined.Sync, tr("Обновить", "Refresh")) }
                 }
                 IconButton(onClick = { nav.navigate(Routes.SETTINGS) }) { Icon(Icons.Outlined.Settings, tr("Настройки", "Settings")) }
             }
         }
 
         // ----- Показатели -----
-        if (last == null) {
+        // Значения плиток: подключённый YouTube важнее ручных записей.
+        val ytSubs = ytc?.takeIf { !it.hiddenSubscribers }?.subscribers
+        val tileSubs = ytSubs ?: last?.subscribers
+        val tileViews = if (ytc != null) ytc.views else last?.totalViews
+        val tileVideos = ytc?.videoCount ?: last?.videoCount
+        val isPublic = ytc?.source == "public"
+        if (last == null && ytc == null) {
             item {
                 LxCard(onClick = { nav.navigate(Routes.snapshot(0)) }) {
                     Text(tr("Добавьте показатели канала", "Add your channel stats"), style = MaterialTheme.typography.titleMedium)
@@ -172,21 +178,24 @@ fun HomeScreen(nav: NavHostController) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     StatTile(
-                        tr("Подписчики", "Subscribers"), Fmt.number(last.subscribers), Modifier.weight(1f),
+                        tr("Подписчики", "Subscribers"), tileSubs?.let { (if (isPublic && ytSubs != null) "≈" else "") + Fmt.number(it) } ?: "—", Modifier.weight(1f),
                         sub = subs28?.let { "${Fmt.signed(it.value)} " + tr("за ${it.days} дн", "in ${it.days}d") },
                         subColor = if ((subs28?.value ?: 0) >= 0) LX.Ok else LX.Accent, icon = Icons.Outlined.Group,
                     )
-                    StatTile(tr("Просмотры", "Views"), Fmt.number(last.totalViews), Modifier.weight(1f), icon = Icons.Outlined.Visibility)
-                    StatTile(tr("Видео", "Videos"), Fmt.number(last.videoCount), Modifier.weight(0.8f), icon = Icons.Outlined.VideoLibrary)
+                    StatTile(
+                        if (isPublic) tr("Просм. ${ytc?.videos?.size ?: 0} видео", "Views, ${ytc?.videos?.size ?: 0} videos") else tr("Просмотры", "Views"),
+                        tileViews?.let { Fmt.number(it) } ?: "—", Modifier.weight(1f), icon = Icons.Outlined.Visibility,
+                    )
+                    StatTile(tr("Видео", "Videos"), tileVideos?.let { Fmt.number(it) } ?: "—", Modifier.weight(0.8f), icon = Icons.Outlined.VideoLibrary)
                 }
             }
-            item {
+            if (ytc == null || views7 != null || views28 != null) item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     StatTile(
                         tr("Просмотры · 7 дн", "Views · 7d"), views7?.let { Fmt.signed(it.value) } ?: "—", Modifier.weight(1f),
                         sub = when {
                             views7 == null -> tr("нужна ещё запись", "need another entry")
-                            ytc != null -> tr("данные YouTube", "YouTube data")
+                            ytc != null && ytc.daily.isNotEmpty() -> tr("данные YouTube", "YouTube data")
                         views7.days != 7L -> tr("фактически ${views7.days} дн", "actual ${views7.days}d")
                             else -> null
                         },
@@ -195,7 +204,7 @@ fun HomeScreen(nav: NavHostController) {
                         tr("Просмотры · 28 дн", "Views · 28d"), views28?.let { Fmt.signed(it.value) } ?: "—", Modifier.weight(1f),
                         sub = when {
                             views28 == null -> tr("нужна ещё запись", "need another entry")
-                            ytc != null -> tr("данные YouTube", "YouTube data")
+                            ytc != null && ytc.daily.isNotEmpty() -> tr("данные YouTube", "YouTube data")
                         views28.days != 28L -> tr("фактически ${views28.days} дн", "actual ${views28.days}d")
                             else -> null
                         },
@@ -206,7 +215,7 @@ fun HomeScreen(nav: NavHostController) {
 
         // ----- Цель -----
         item {
-            val subs = last?.subscribers ?: 0L
+            val subs = (ytc?.takeIf { !it.hiddenSubscribers }?.subscribers) ?: last?.subscribers ?: 0L
             val goal = s.subscriberGoal.coerceAtLeast(1)
             LxCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {

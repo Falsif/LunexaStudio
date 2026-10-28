@@ -247,12 +247,21 @@ class Repository(
         return cache
     }
 
+    /** Режим открытых данных: по ссылке на канал, без входа и без Google Cloud. */
+    suspend fun youtubePublicSync(input: String): YtCache {
+        val cache = YouTubePublic.fetch(input)
+        withContext(Dispatchers.IO) { YouTubeStore.save(context, cache) }
+        _yt.value = cache
+        store.update { it.copy(youtubeConnected = true, youtubeChannelInput = input.trim(), channelName = cache.title) }
+        return cache
+    }
+
     suspend fun youtubeDisconnect() {
         lastToken?.let { YouTubeApi.revoke(it) }
         lastToken = null
         withContext(Dispatchers.IO) { YouTubeStore.clear(context) }
         _yt.value = null
-        store.update { it.copy(youtubeConnected = false) }
+        store.update { it.copy(youtubeConnected = false, youtubeChannelInput = "") }
     }
 
     // ---------- Резервное копирование ----------

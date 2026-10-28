@@ -100,7 +100,7 @@ fun AnalyticsScreen(nav: NavHostController) {
             LxTopBar(tr("Аналитика", "Analytics"), actions = {
                 if (yt != null && connector != null) {
                     if (connector.busy) androidx.compose.material3.CircularProgressIndicator(Modifier.padding(12.dp).size(22.dp), strokeWidth = 2.dp)
-                    else IconButton(onClick = { connector.connect() }) { Icon(Icons.Outlined.Sync, tr("Обновить", "Refresh")) }
+                    else IconButton(onClick = { connector.refresh() }) { Icon(Icons.Outlined.Sync, tr("Обновить", "Refresh")) }
                 }
             })
         },

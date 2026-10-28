@@ -100,6 +100,16 @@ fun LunexaRoot(repo: Repository) {
     // Однократный запрос разрешения на уведомления (Android 13+).
     val context = LocalContext.current
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    // Тихое обновление открытых данных канала при запуске (не чаще раза в 3 часа).
+    LaunchedEffect(Unit) {
+        repo.launch {
+            val input = settingsNow().youtubeChannelInput
+            val cache = youtube.value
+            if (input.isNotBlank() && cache?.source == "public" && System.currentTimeMillis() - cache.syncedAt > 3 * 3_600_000L) {
+                runCatching { youtubePublicSync(input) }
+            }
+        }
+    }
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= 33 && !Notifier.canPost(context)) {
             permLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)

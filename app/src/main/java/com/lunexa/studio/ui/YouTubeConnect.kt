@@ -22,6 +22,7 @@ import com.google.android.gms.common.api.Scope
 import com.lunexa.studio.data.Repository
 import com.lunexa.studio.data.YT_SCOPES
 import com.lunexa.studio.data.YouTubeApi
+import com.lunexa.studio.data.YouTubePublic
 import kotlinx.coroutines.launch
 
 /**
@@ -94,6 +95,37 @@ class YouTubeConnector(
             } finally {
                 busy = false
             }
+        }
+    }
+
+    /** Подключение по ссылке на канал — без входа в Google. */
+    fun connectPublic(input: String) {
+        if (busy) return
+        busy = true
+        message = null
+        repo.scope.launch {
+            try {
+                val c = repo.youtubePublicSync(input)
+                isError = false
+                message = if (en) "Channel connected: ${c.title}" else "Канал подключён: ${c.title}"
+            } catch (e: Exception) {
+                isError = true
+                message = YouTubePublic.explain(e, langProvider())
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    /** Обновить данные тем же способом, каким канал был подключён. */
+    fun refresh() {
+        if (repo.youtube.value?.source == "public") {
+            repo.scope.launch {
+                val input = repo.settingsNow().youtubeChannelInput
+                if (input.isNotBlank()) connectPublic(input) else fail(if (en) "Channel link is missing." else "Нет ссылки на канал.")
+            }
+        } else {
+            connect()
         }
     }
 

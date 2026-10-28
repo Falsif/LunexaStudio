@@ -22,6 +22,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -66,20 +68,40 @@ fun YouTubeConnectBlock() {
     val cache by repo.youtube.collectAsStateWithLifecycle()
     val connector = rememberYouTubeConnector()
     var confirm by remember { mutableStateOf(false) }
+    var input by remember { mutableStateOf("") }
 
     Text("YouTube", style = MaterialTheme.typography.titleSmall)
     Spacer(Modifier.height(6.dp))
     val c = cache
     if (c == null) {
         Text(
-            tr("Войдите через Google-аккаунт, которому принадлежит канал. Приложение получает доступ только на чтение статистики и не видит ваш пароль.",
-                "Sign in with the Google account that owns the channel. The app gets read-only access to stats and never sees your password."),
+            tr("Вставьте ссылку на свой канал или @имя. Приложение покажет открытые данные: подписчиков, число видео и последние ролики с просмотрами и лайками. Вход и пароль не нужны.",
+                "Paste your channel link or @handle. The app shows public data: subscribers, video count and recent videos with views and likes. No sign-in needed."),
             style = MaterialTheme.typography.bodySmall, color = LX.Muted,
         )
         Spacer(Modifier.height(10.dp))
-        Button(onClick = { connector?.connect() }, enabled = connector != null && !connector.busy, modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            input, { input = it.take(200) }, singleLine = true,
+            label = { Text(tr("Ссылка на канал или @имя", "Channel link or @handle")) },
+            placeholder = { Text("https://youtube.com/@…") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { connector?.connectPublic(input) },
+            enabled = connector != null && !connector.busy && input.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             if (connector?.busy == true) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
-            Text(tr("Подключить YouTube-канал", "Connect YouTube channel"))
+            Text(tr("Подключить канал", "Connect channel"))
+        }
+        Text(
+            tr("Подсказка: в YouTube откройте свой канал → «Поделиться» → «Копировать ссылку».", "Tip: in YouTube open your channel → Share → Copy link."),
+            style = MaterialTheme.typography.labelSmall, color = LX.Muted,
+        )
+        Spacer(Modifier.height(6.dp))
+        TextButton(onClick = { connector?.connect() }, enabled = connector != null && !connector.busy) {
+            Text(tr("Полная аналитика через вход Google (нужен Google Cloud)", "Full analytics via Google sign-in (needs Google Cloud)"))
         }
     } else {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -87,12 +109,16 @@ fun YouTubeConnectBlock() {
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(c.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(tr("Синхронизация: ", "Last sync: ") + Fmt.dateTime(c.syncedAt, zone, lang), style = MaterialTheme.typography.bodySmall, color = LX.Muted)
+                Text(
+                    (if (c.source == "public") tr("Открытые данные · ", "Public data · ") else tr("Вход Google · ", "Google sign-in · ")) +
+                        Fmt.dateTime(c.syncedAt, zone, lang),
+                    style = MaterialTheme.typography.bodySmall, color = LX.Muted,
+                )
             }
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = { connector?.connect() }, enabled = connector != null && !connector.busy, modifier = Modifier.weight(1f)) {
+            Button(onClick = { connector?.refresh() }, enabled = connector != null && !connector.busy, modifier = Modifier.weight(1f)) {
                 if (connector?.busy == true) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
                 Text(tr("Обновить", "Refresh"))
             }
@@ -175,6 +201,15 @@ fun LazyListScope.youtubeAnalytics(c: YtCache, period: Int, lang: String) {
     val t = totals(days)
 
     item { SectionTitle("YouTube · " + c.title) }
+    if (c.source == "public") item {
+        LxCard {
+            Text(
+                tr("Режим открытых данных: подписчики (округлённо, как на странице канала) и последние ${c.videos.size} роликов. Время просмотра, источники трафика и страны доступны только через вход Google.",
+                    "Public data mode: subscribers (rounded, as on the channel page) and the last ${c.videos.size} videos. Watch time, traffic sources and countries need Google sign-in."),
+                style = MaterialTheme.typography.bodySmall, color = LX.Muted,
+            )
+        }
+    }
     if (c.analyticsError != null) item {
         LxCard {
             Text(tr("Статистика канала загружена, но YouTube Analytics недоступна:", "Channel stats loaded, but YouTube Analytics is unavailable:"),
@@ -186,11 +221,15 @@ fun LazyListScope.youtubeAnalytics(c: YtCache, period: Int, lang: String) {
     }
     item {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile(tr("Подписчики", "Subscribers"), if (c.hiddenSubscribers) "—" else Fmt.number(c.subscribers), Modifier.weight(1f),
+            val pub = c.source == "public"
+            StatTile(tr("Подписчики", "Subscribers"), if (c.hiddenSubscribers) "—" else (if (pub) "≈" else "") + Fmt.number(c.subscribers), Modifier.weight(1f),
                 sub = if (days.isNotEmpty()) "${Fmt.signed(t.subsNet)} " + tr("за период", "in period") else null,
                 subColor = if (t.subsNet >= 0) LX.Ok else LX.Accent)
-            StatTile(tr("Просмотры", "Views"), Fmt.number(c.views), Modifier.weight(1f),
+            StatTile(
+                if (pub) tr("Просмотры ${c.videos.size} видео", "Views, ${c.videos.size} videos") else tr("Просмотры", "Views"),
+                Fmt.number(c.views), Modifier.weight(1f),
                 sub = if (days.isNotEmpty()) "+${Fmt.number(t.views)} " + tr("за период", "in period") else null)
+            if (pub) StatTile(tr("Видео", "Videos"), Fmt.number(c.videoCount), Modifier.weight(0.8f))
         }
     }
     if (days.isNotEmpty()) {

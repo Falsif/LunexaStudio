@@ -31,7 +31,9 @@ const val SHORTS_MAX_SEC = 180
 @Serializable data class YtVideo(
     val id: String, val title: String, val publishedAt: String, val thumb: String? = null,
     val durationSec: Int = 0, val views: Long = 0, val likes: Long = 0, val comments: Long = 0,
-) { val isShort: Boolean get() = durationSec in 1..SHORTS_MAX_SEC }
+    /** Из публичной ленты: ссылка вида /shorts/… */
+    val shortsHint: Boolean? = null,
+) { val isShort: Boolean get() = shortsHint ?: (durationSec in 1..SHORTS_MAX_SEC) }
 
 @Serializable data class YtDay(
     val date: String, val views: Long, val minutes: Long, val avgDurSec: Long, val subsGained: Long, val subsLost: Long,
@@ -58,6 +60,8 @@ const val SHORTS_MAX_SEC = 180
     val videoStats: List<YtVideoStat> = emptyList(),
     /** Если Analytics API недоступен — данные Data API всё равно сохраняются, а здесь причина. */
     val analyticsError: String? = null,
+    /** "api" — вход через Google, "public" — открытые данные по ссылке на канал. */
+    val source: String = "api",
 )
 
 class YtException(val code: Int, val reason: String?, message: String) : Exception(message)
