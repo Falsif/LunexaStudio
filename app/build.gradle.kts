@@ -14,15 +14,25 @@ android {
         applicationId = "com.lunexa.studio"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-stage1"
+        versionCode = 2
+        versionName = "0.2.0-stage2"
+    }
+
+    // Постоянный debug-ключ в репозитории: его SHA-1 зарегистрирован в Google Cloud,
+    // поэтому вход через Google работает в любой сборке из GitHub Actions.
+    // Для публикации в Google Play используйте отдельный приватный ключ.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("lunexa-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Подписано debug-ключом, чтобы APK можно было сразу установить.
-            // Для публикации в Google Play замените на собственный keystore.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -59,4 +69,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }

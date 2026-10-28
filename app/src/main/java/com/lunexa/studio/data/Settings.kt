@@ -31,6 +31,7 @@ data class AppSettings(
     val tiktokTime: String = "19:00",
     val subscriberGoal: Long = 100,
     val accent: Int = 0,
+    val youtubeConnected: Boolean = false,
 )
 
 val AppJson = Json {

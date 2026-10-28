@@ -233,10 +233,7 @@ fun SettingsScreen(nav: NavHostController) {
             // ---------- Интеграции ----------
             SectionTitle(tr("Интеграции", "Integrations"))
             LxCard {
-                Text("YouTube (Google OAuth 2.0)", style = MaterialTheme.typography.titleSmall)
-                Text(tr("Не подключено. Подключение через официальный вход Google появится на этапе 2 — пароли приложение не хранит.",
-                    "Not connected. Official Google sign-in arrives in stage 2 — the app never stores passwords."),
-                    style = MaterialTheme.typography.bodySmall, color = LX.Muted)
+                YouTubeConnectBlock()
                 Spacer(Modifier.height(10.dp))
                 Text("TikTok", style = MaterialTheme.typography.titleSmall)
                 Text(tr("Только ручное планирование. Автопубликация и статистика TikTok недоступны без официального доступа к API.",
@@ -272,7 +269,7 @@ fun SettingsScreen(nav: NavHostController) {
                     runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
                 }
                 Text("LUNEXA Studio", style = MaterialTheme.typography.titleMedium)
-                Text(tr("Версия $version · этап 1", "Version $version · stage 1"), style = MaterialTheme.typography.bodySmall, color = LX.Muted)
+                Text(tr("Версия $version", "Version $version"), style = MaterialTheme.typography.bodySmall, color = LX.Muted)
                 Spacer(Modifier.height(6.dp))
                 Text(tr("Личный центр управления игровым YouTube-каналом. Не видеоредактор. Данные хранятся только на устройстве.",
                     "Personal control center for a gaming YouTube channel. Not a video editor. Data stays on your device."),

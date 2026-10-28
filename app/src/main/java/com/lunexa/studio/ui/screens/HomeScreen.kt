@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -86,9 +87,14 @@ fun HomeScreen(nav: NavHostController) {
     val today = LocalDate.now(zone)
 
     val last = Stats.latest(snaps)
-    val views7 = Stats.delta(snaps, 7) { it.totalViews }
-    val views28 = Stats.delta(snaps, 28) { it.totalViews }
-    val subs28 = Stats.delta(snaps, 28) { it.subscribers }
+    val yt by repo.youtube.collectAsStateWithLifecycle()
+    val ytc = yt
+    val connector = com.lunexa.studio.ui.rememberYouTubeConnector()
+    // При подключённом YouTube — реальные данные Analytics API, иначе — по ручным записям.
+    fun ytDelta(n: Int, v: Long?) = if (ytc == null || v == null) null else com.lunexa.studio.data.Delta(v, minOf(n, ytc.daily.size).toLong())
+    val views7 = ytDelta(7, ytc?.viewsLast(7)) ?: Stats.delta(snaps, 7) { it.totalViews }
+    val views28 = ytDelta(28, ytc?.viewsLast(28)) ?: Stats.delta(snaps, 28) { it.totalViews }
+    val subs28 = ytDelta(28, ytc?.subsNetLast(28)) ?: Stats.delta(snaps, 28) { it.subscribers }
 
     val active = setOf(PubStatus.PLANNED, PubStatus.READY)
     val next = pubs.filter { it.scheduledAt >= now && it.status in active }.minByOrNull { it.scheduledAt }
@@ -111,11 +117,12 @@ fun HomeScreen(nav: NavHostController) {
                         .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, LX.Red2))),
                     contentAlignment = Alignment.Center,
                 ) {
-                    val name = s.channelName.ifBlank { s.workspaceName }
+                    val name = ytc?.title ?: s.channelName.ifBlank { s.workspaceName }
                     Text(name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge, color = Color.White)
-                    if (s.channelAvatarUri != null) {
+                    val avatar: Any? = ytc?.thumb ?: s.channelAvatarUri?.let { Uri.parse(it) }
+                    if (avatar != null) {
                         AsyncImage(
-                            model = Uri.parse(s.channelAvatarUri), contentDescription = null,
+                            model = avatar, contentDescription = null,
                             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -123,14 +130,19 @@ fun HomeScreen(nav: NavHostController) {
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        s.channelName.ifBlank { s.workspaceName },
+                        ytc?.title ?: s.channelName.ifBlank { s.workspaceName },
                         style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        if (last != null) tr("Данные вручную · ", "Manual data · ") + Fmt.date(LocalDate.ofEpochDay(last.dateEpochDay).atStartOfDay(zone).toInstant().toEpochMilli(), zone, lang)
+                        if (ytc != null) "YouTube · " + tr("обновлено ", "synced ") + Fmt.dateTime(ytc.syncedAt, zone, lang)
+                        else if (last != null) tr("Данные вручную · ", "Manual data · ") + Fmt.date(LocalDate.ofEpochDay(last.dateEpochDay).atStartOfDay(zone).toInstant().toEpochMilli(), zone, lang)
                         else tr("Канал не подключён · ручной режим", "Channel not connected · manual mode"),
                         style = MaterialTheme.typography.bodySmall, color = LX.Muted,
                     )
+                }
+                if (ytc != null && connector != null) {
+                    if (connector.busy) androidx.compose.material3.CircularProgressIndicator(Modifier.padding(12.dp).size(22.dp), strokeWidth = 2.dp)
+                    else IconButton(onClick = { connector.connect() }) { Icon(Icons.Outlined.Sync, tr("Обновить", "Refresh")) }
                 }
                 IconButton(onClick = { nav.navigate(Routes.SETTINGS) }) { Icon(Icons.Outlined.Settings, tr("Настройки", "Settings")) }
             }
@@ -144,13 +156,16 @@ fun HomeScreen(nav: NavHostController) {
                     Spacer(Modifier.height(4.dp))
                     Text(
                         tr(
-                            "Пока YouTube API не подключён, введите подписчиков, просмотры и число видео из YouTube Studio. Регулярные записи построят график роста.",
-                            "Until the YouTube API is connected, enter subscribers, views and video count from YouTube Studio. Regular entries build the growth chart.",
+                            "Подключите канал через Google — статистика подтянется автоматически. Или вводите цифры из YouTube Studio вручную.",
+                            "Connect your channel with Google to load stats automatically, or enter numbers from YouTube Studio manually.",
                         ),
                         style = MaterialTheme.typography.bodyMedium, color = LX.Muted,
                     )
                     Spacer(Modifier.height(10.dp))
-                    FilledTonalButton(onClick = { nav.navigate(Routes.snapshot(0)) }) { Text(tr("Ввести данные", "Enter data")) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.material3.Button(onClick = { nav.switchTab(Routes.ANALYTICS) }) { Text(tr("Подключить YouTube", "Connect YouTube")) }
+                        FilledTonalButton(onClick = { nav.navigate(Routes.snapshot(0)) }) { Text(tr("Ввести вручную", "Enter manually")) }
+                    }
                 }
             }
         } else {
@@ -171,7 +186,8 @@ fun HomeScreen(nav: NavHostController) {
                         tr("Просмотры · 7 дн", "Views · 7d"), views7?.let { Fmt.signed(it.value) } ?: "—", Modifier.weight(1f),
                         sub = when {
                             views7 == null -> tr("нужна ещё запись", "need another entry")
-                            views7.days != 7L -> tr("фактически ${views7.days} дн", "actual ${views7.days}d")
+                            ytc != null -> tr("данные YouTube", "YouTube data")
+                        views7.days != 7L -> tr("фактически ${views7.days} дн", "actual ${views7.days}d")
                             else -> null
                         },
                     )
@@ -179,7 +195,8 @@ fun HomeScreen(nav: NavHostController) {
                         tr("Просмотры · 28 дн", "Views · 28d"), views28?.let { Fmt.signed(it.value) } ?: "—", Modifier.weight(1f),
                         sub = when {
                             views28 == null -> tr("нужна ещё запись", "need another entry")
-                            views28.days != 28L -> tr("фактически ${views28.days} дн", "actual ${views28.days}d")
+                            ytc != null -> tr("данные YouTube", "YouTube data")
+                        views28.days != 28L -> tr("фактически ${views28.days} дн", "actual ${views28.days}d")
                             else -> null
                         },
                     )
@@ -253,7 +270,27 @@ fun HomeScreen(nav: NavHostController) {
                 }
             }
         }
-        item {
+        val ytLatest = ytc?.videos?.firstOrNull()
+        if (ytLatest != null) item {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            LxCard(onClick = {
+                runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("https://youtu.be/${ytLatest.id}"))) }
+            }) {
+                Text(tr("Последнее видео на канале", "Latest video on channel"), style = MaterialTheme.typography.labelMedium, color = LX.Muted)
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.PlayCircle, null, tint = if (ytLatest.isShort) LX.Accent else LX.Warn)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(ytLatest.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "👁 ${Fmt.number(ytLatest.views)} · 👍 ${Fmt.number(ytLatest.likes)} · 💬 ${Fmt.number(ytLatest.comments)}",
+                            style = MaterialTheme.typography.bodySmall, color = LX.Muted,
+                        )
+                    }
+                }
+            }
+        } else item {
             LxCard(onClick = lastPublished?.let { p -> { nav.navigate(Routes.pub(p.id)) } }) {
                 Text(tr("Последняя опубликованная", "Last published"), style = MaterialTheme.typography.labelMedium, color = LX.Muted)
                 Spacer(Modifier.height(4.dp))

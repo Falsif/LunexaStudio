@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -81,6 +83,8 @@ fun AnalyticsScreen(nav: NavHostController) {
     val pubs by repo.publications.collectAsStateWithLifecycle(emptyList())
     val games by repo.games.collectAsStateWithLifecycle(emptyList())
     var period by rememberSaveable { mutableStateOf(28) }
+    val yt by repo.youtube.collectAsStateWithLifecycle()
+    val connector = com.lunexa.studio.ui.rememberYouTubeConnector()
 
     val today = LocalDate.now(zone)
     val fromDay = if (period == 0) Long.MIN_VALUE else today.minusDays(period.toLong()).toEpochDay()
@@ -92,7 +96,14 @@ fun AnalyticsScreen(nav: NavHostController) {
     }
 
     LxScaffold(
-        topBar = { LxTopBar(tr("Аналитика", "Analytics")) },
+        topBar = {
+            LxTopBar(tr("Аналитика", "Analytics"), actions = {
+                if (yt != null && connector != null) {
+                    if (connector.busy) androidx.compose.material3.CircularProgressIndicator(Modifier.padding(12.dp).size(22.dp), strokeWidth = 2.dp)
+                    else IconButton(onClick = { connector.connect() }) { Icon(Icons.Outlined.Sync, tr("Обновить", "Refresh")) }
+                }
+            })
+        },
         fab = {
             FloatingActionButton(onClick = { nav.navigate(Routes.snapshot(0)) }, containerColor = MaterialTheme.colorScheme.primary) {
                 Icon(Icons.Outlined.Add, tr("Добавить показатели", "Add stats"))
@@ -104,25 +115,35 @@ fun AnalyticsScreen(nav: NavHostController) {
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item {
+            if (yt == null) item {
                 LxCard {
                     Row(verticalAlignment = Alignment.Top) {
                         Icon(Icons.Outlined.Info, null, tint = LX.Cyan)
                         Spacer(Modifier.width(10.dp))
                         Text(
                             tr(
-                                "Сейчас аналитика строится по данным, которые вы вводите из YouTube Studio. Автоматическая синхронизация через YouTube Analytics API появится на этапе 2.",
-                                "Analytics currently uses data you enter from YouTube Studio. Automatic sync via the YouTube Analytics API arrives in stage 2.",
+                                "Подключите канал — и здесь появятся реальные просмотры, время просмотра, источники трафика, страны и лучшие ролики. Без подключения работают ручные записи из YouTube Studio.",
+                                "Connect your channel to see real views, watch time, traffic sources, countries and top videos. Without it, manual entries from YouTube Studio still work.",
                             ),
                             style = MaterialTheme.typography.bodySmall, color = LX.Muted,
                         )
                     }
+                    Spacer(Modifier.height(12.dp))
+                    YouTubeConnectBlock()
                 }
             }
             item {
                 ChipsRow(periods, period, {
                     when (it) { 0 -> tr2p(lang, "Всё время", "All time"); 365 -> tr2p(lang, "Год", "Year"); else -> tr2p(lang, "$it дн", "${it}d") }
                 }, { period = it })
+            }
+            val note = connector?.message
+            if (yt != null && note != null) item {
+                Text(note, style = MaterialTheme.typography.bodySmall, color = if (connector?.isError == true) LX.Accent else LX.Ok)
+            }
+            yt?.let { c ->
+                youtubeAnalytics(c, period, lang)
+                item { SectionTitle(tr("Ручные записи и публикации", "Manual entries & uploads")) }
             }
 
             if (snaps.isEmpty()) {

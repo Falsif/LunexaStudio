@@ -10,6 +10,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -216,6 +218,41 @@ class Repository(
         db.pubs().all().forEach { Reminders.schedulePublication(context, it, s) }
         db.tasks().all().forEach { Reminders.scheduleTask(context, it, s) }
         Reminders.scheduleWeekly(context, s)
+    }
+
+    // ---------- YouTube ----------
+    private val _yt = MutableStateFlow(YouTubeStore.load(context))
+    val youtube: StateFlow<YtCache?> = _yt
+
+    /** Последний токен — только в памяти, на диск не пишется. */
+    @Volatile private var lastToken: String? = null
+
+    suspend fun youtubeSync(token: String): YtCache {
+        lastToken = token
+        val s = store.current()
+        val zone = zoneOf(s.timezone)
+        val cache = YouTubeApi.fetch(token, zone)
+        withContext(Dispatchers.IO) { YouTubeStore.save(context, cache) }
+        _yt.value = cache
+        store.update { it.copy(youtubeConnected = true, channelName = cache.title) }
+        // Снимок на сегодня — чтобы график роста на главной строился из реальных данных.
+        if (!cache.hiddenSubscribers) {
+            db.snapshots().upsertByDate(
+                ChannelSnapshot(
+                    dateEpochDay = LocalDate.now(zone).toEpochDay(), subscribers = cache.subscribers,
+                    totalViews = cache.views, videoCount = cache.videoCount, note = "YouTube API",
+                ),
+            )
+        }
+        return cache
+    }
+
+    suspend fun youtubeDisconnect() {
+        lastToken?.let { YouTubeApi.revoke(it) }
+        lastToken = null
+        withContext(Dispatchers.IO) { YouTubeStore.clear(context) }
+        _yt.value = null
+        store.update { it.copy(youtubeConnected = false) }
     }
 
     // ---------- Резервное копирование ----------
