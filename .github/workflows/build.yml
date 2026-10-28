@@ -26,10 +26,10 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          # Выводим ошибки как аннотации, чтобы их было видно на странице сборки
-          grep -E "^e: |error:|What went wrong|Could not|Execution failed|> " build.log | head -60 | while IFS= read -r line; do
-            echo "::error::${line//%/%25}"
-          done
+          # Все ошибки одной аннотацией (GitHub показывает максимум 10 аннотаций на шаг)
+          { grep -E "^e: |^\[ksp\]|error:" build.log | head -40; echo "-----"; grep -A 12 "What went wrong" build.log | head -40; } > errors.txt || true
+          msg=$(sed -e 's/%/%25/g' errors.txt | awk 'BEGIN{ORS="%0A"} {print}')
+          echo "::error title=Build errors::${msg}"
       - uses: actions/upload-artifact@v4
         with:
           name: LUNEXA-Studio-APK
