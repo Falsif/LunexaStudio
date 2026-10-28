@@ -65,6 +65,24 @@ object YouTubePublic {
         return Math.round(n * mult)
     }
 
+    /** Фрагмент страницы с шапкой канала (новая и старая разметка YouTube). */
+    private fun headerRegion(html: String): String? {
+        for (key in listOf("\"pageHeaderViewModel\"", "\"c4TabbedHeaderRenderer\"", "\"pageHeaderRenderer\"")) {
+            val i = html.indexOf(key)
+            if (i >= 0) return html.substring(i, minOf(html.length, i + 30_000))
+        }
+        return null
+    }
+
+    /** «5 subscribers», «1 subscriber», «1.2K subscribers», «No subscribers». */
+    private fun countIn(region: String, word: String): Long? {
+        if (Regex(""""(?:content|simpleText)":"No ${word}s"""").containsMatchIn(region)) return 0
+        val m = Regex(""""(?:content|simpleText)":"([\d][\d.,]*)\s?([KMB]?)\s+${word}s?"""").find(region)
+            ?: Regex("""([\d][\d.,]*)\s?([KMB]?)\s+${word}s?\b""").find(region)
+            ?: return null
+        return parseCount(m.groupValues[1], m.groupValues[2])
+    }
+
     suspend fun fetch(input: String): YtCache = withContext(Dispatchers.IO) {
         if (input.isBlank()) throw PublicException("empty", "Empty input")
         val html = get(pageUrl(input))
@@ -74,10 +92,10 @@ object YouTubePublic {
             ?: throw PublicException("notFound", "Channel id not found")
         val title = Regex("""<meta property="og:title" content="([^"]*)"""").find(html)?.groupValues?.get(1)?.let(::unescape)
         val avatar = Regex("""<meta property="og:image" content="([^"]*)"""").find(html)?.groupValues?.get(1)?.let(::unescape)
-        val subsMatch = Regex("""([\d][\d.,]*)\s?([KMB]?)\s+subscribers""").find(html)
-        val subs = subsMatch?.let { parseCount(it.groupValues[1], it.groupValues[2]) }
-        val videosMatch = Regex("""([\d][\d.,]*)\s?([KMB]?)\s+videos""").find(html)
-        val videoCount = videosMatch?.let { parseCount(it.groupValues[1], it.groupValues[2]) }
+        // Числа берём только из шапки этого канала: на странице есть и чужие каналы (рекомендации).
+        val header = headerRegion(html)
+        val subs = header?.let { countIn(it, "subscriber") }
+        val videoCount = header?.let { countIn(it, "video") }
 
         val (feedTitle, videos) = parseFeed(get("https://www.youtube.com/feeds/videos.xml?channel_id=$id"))
 
@@ -88,7 +106,7 @@ object YouTubePublic {
             subscribers = subs ?: 0,
             hiddenSubscribers = subs == null,
             views = videos.sumOf { it.views },
-            videoCount = videoCount ?: videos.size.toLong(),
+            videoCount = videoCount?.takeIf { it >= videos.size } ?: videos.size.toLong(),
             videos = videos,
             source = "public",
         )
