@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Lunexa" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/lx_bg</item>
+        <item name="android:statusBarColor">@color/lx_bg</item>
+        <item name="android:navigationBarColor">@color/lx_bg</item>
+        <item name="android:colorAccent">@color/lx_accent</item>
+    </style>
+</resources>
