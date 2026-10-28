@@ -328,9 +328,9 @@ private fun VideoRow(v: com.lunexa.studio.data.YtVideo) {
     val ctx = LocalContext.current
     val lang = LocalLang.current
     val zone = LocalZone.current
-    LxCard(onClick = {
-        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://youtu.be/${v.id}"))) }
-    }, padding = PaddingValues(10.dp)) {
+    var menu by remember { mutableStateOf(false) }
+    LxCard(onClick = { menu = true }, padding = PaddingValues(10.dp)) {
+        VideoActionsMenu(v.id, menu) { menu = false }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(96.dp).height(54.dp).clip(RoundedCornerShape(10.dp)).background(LX.Card2)) {
                 if (v.thumb != null) AsyncImage(v.thumb, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -354,3 +354,50 @@ private fun VideoRow(v: com.lunexa.studio.data.YtVideo) {
 /** Данные для главной: реальные показатели за последние n дней. */
 fun YtCache.viewsLast(n: Int): Long? = if (daily.isEmpty()) null else daily.takeLast(n).sumOf { it.views }
 fun YtCache.subsNetLast(n: Int): Long? = if (daily.isEmpty()) null else daily.takeLast(n).sumOf { it.subsGained - it.subsLost }
+
+/** Пульт управления каналом: действия выполняются в официальных приложениях YouTube. */
+@Composable
+fun ChannelControlCard(channelId: String?) {
+    val ctx = LocalContext.current
+    var uploadFailed by remember { mutableStateOf(false) }
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent(),
+    ) { uri -> if (uri != null) uploadFailed = !com.lunexa.studio.ui.Studio.uploadVideo(ctx, uri) }
+    LxCard {
+        Text(tr("Управление каналом", "Channel controls"), style = MaterialTheme.typography.titleSmall)
+        Text(
+            tr("Открывается в YouTube Studio, где вы уже вошли в аккаунт.", "Opens in YouTube Studio, where you're already signed in."),
+            style = MaterialTheme.typography.bodySmall, color = LX.Muted,
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { picker.launch("video/*") }, modifier = Modifier.weight(1f)) { Text(tr("Загрузить", "Upload"), maxLines = 1) }
+            OutlinedButton(onClick = { com.lunexa.studio.ui.Studio.channelHome(ctx, channelId) }, modifier = Modifier.weight(1f)) { Text("Studio", maxLines = 1) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { com.lunexa.studio.ui.Studio.channelComments(ctx, channelId) }, modifier = Modifier.weight(1f)) {
+                Text(tr("Комментарии", "Comments"), maxLines = 1)
+            }
+            OutlinedButton(onClick = { com.lunexa.studio.ui.Studio.channelAnalytics(ctx, channelId) }, modifier = Modifier.weight(1f)) {
+                Text(tr("Статистика", "Analytics"), maxLines = 1)
+            }
+        }
+        if (uploadFailed) Text(tr("Не найдено приложение YouTube для загрузки.", "YouTube app not found for upload."), color = LX.Accent, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** Меню действий с роликом. */
+@Composable
+fun VideoActionsMenu(videoId: String, expanded: Boolean, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        listOf<Pair<String, (android.content.Context, String) -> Unit>>(
+            tr("Смотреть", "Watch") to com.lunexa.studio.ui.Studio::watch,
+            tr("Редактировать в Studio", "Edit in Studio") to com.lunexa.studio.ui.Studio::editVideo,
+            tr("Комментарии", "Comments") to com.lunexa.studio.ui.Studio::videoComments,
+            tr("Статистика ролика", "Video analytics") to com.lunexa.studio.ui.Studio::videoAnalytics,
+        ).forEach { (title, action) ->
+            androidx.compose.material3.DropdownMenuItem(text = { Text(title) }, onClick = { onDismiss(); action(ctx, videoId) })
+        }
+    }
+}

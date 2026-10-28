@@ -60,6 +60,8 @@ data class Publication(
     val ideaId: Long? = null,
     /** Просмотры, введённые вручную (до подключения YouTube API). */
     val views: Long? = null,
+    /** id ролика на YouTube, если публикация связана с видео на канале. */
+    val videoId: String? = null,
     val notes: String = "",
     val createdAt: Long = System.currentTimeMillis(),
 )

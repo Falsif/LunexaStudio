@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -242,6 +243,9 @@ fun HomeScreen(nav: NavHostController) {
             }
         }
 
+        // ----- Пульт управления каналом -----
+        item { ChannelControlCard(ytc?.channelId) }
+
         // ----- Важное -----
         if (overdue > 0 || todayPubs > 0 || tasksDue > 0 || (last != null && last.subscribers >= s.subscriberGoal)) {
             item { SectionTitle(tr("Важное", "Heads up")) }
@@ -281,10 +285,9 @@ fun HomeScreen(nav: NavHostController) {
         }
         val ytLatest = ytc?.videos?.firstOrNull()
         if (ytLatest != null) item {
-            val ctx = androidx.compose.ui.platform.LocalContext.current
-            LxCard(onClick = {
-                runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("https://youtu.be/${ytLatest.id}"))) }
-            }) {
+            var menu by remember { androidx.compose.runtime.mutableStateOf(false) }
+            LxCard(onClick = { menu = true }) {
+                VideoActionsMenu(ytLatest.id, menu) { menu = false }
                 Text(tr("Последнее видео на канале", "Latest video on channel"), style = MaterialTheme.typography.labelMedium, color = LX.Muted)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {

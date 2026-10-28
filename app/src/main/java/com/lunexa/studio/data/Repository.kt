@@ -234,6 +234,7 @@ class Repository(
         val cache = YouTubeApi.fetch(token, zone)
         withContext(Dispatchers.IO) { YouTubeStore.save(context, cache) }
         _yt.value = cache
+        syncLinkedViews(cache)
         store.update { it.copy(youtubeConnected = true, channelName = cache.title) }
         // Снимок на сегодня — чтобы график роста на главной строился из реальных данных.
         if (!cache.hiddenSubscribers) {
@@ -252,8 +253,14 @@ class Repository(
         val cache = YouTubePublic.fetch(input)
         withContext(Dispatchers.IO) { YouTubeStore.save(context, cache) }
         _yt.value = cache
+        syncLinkedViews(cache)
         store.update { it.copy(youtubeConnected = true, youtubeChannelInput = input.trim(), channelName = cache.title) }
         return cache
+    }
+
+    /** Просмотры связанных публикаций обновляются из данных канала. */
+    private suspend fun syncLinkedViews(cache: YtCache) {
+        cache.videos.forEach { v -> db.pubs().updateViewsByVideo(v.id, v.views) }
     }
 
     suspend fun youtubeDisconnect() {

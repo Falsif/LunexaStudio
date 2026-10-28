@@ -78,6 +78,9 @@ interface PublicationDao {
     @Query("UPDATE publications SET gameId = NULL WHERE gameId = :gameId")
     suspend fun detachGame(gameId: Long)
 
+    @Query("UPDATE publications SET views = :views, status = 'PUBLISHED' WHERE videoId = :videoId")
+    suspend fun updateViewsByVideo(videoId: String, views: Long)
+
     @Query("UPDATE publications SET ideaId = NULL WHERE ideaId = :ideaId")
     suspend fun detachIdea(ideaId: Long)
 
@@ -133,7 +136,7 @@ interface SnapshotDao {
 
 @Database(
     entities = [Game::class, Idea::class, Publication::class, TaskItem::class, ChannelSnapshot::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -145,6 +148,15 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         fun build(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "lunexa_studio.db").build()
+            Room.databaseBuilder(context, AppDatabase::class.java, "lunexa_studio.db")
+                .addMigrations(MIGRATION_1_2)
+                .build()
+
+        /** v2: связь публикации с роликом на YouTube. Данные пользователя сохраняются. */
+        val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE publications ADD COLUMN videoId TEXT")
+            }
+        }
     }
 }
