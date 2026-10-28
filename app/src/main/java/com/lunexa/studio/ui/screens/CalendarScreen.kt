@@ -166,7 +166,7 @@ fun CalendarScreen(nav: NavHostController) {
                 ChipsRow(
                     options = listOf("ALL") + ContentType.entries.map { it.name },
                     selected = filterName,
-                    label = { if (it == "ALL") tr("Все", "All") else ContentType.valueOf(it).label(lang) },
+                    label = { if (it == "ALL") tr2(lang, "Все", "All") else ContentType.valueOf(it).label(lang) },
                     onSelect = { filterName = it },
                 )
             }
