@@ -39,7 +39,8 @@ object YouTubePublic {
 
     /** Превращает ввод пользователя в адрес страницы канала. */
     fun pageUrl(input: String): String {
-        val t = input.trim().removeSuffix("/")
+        // Убираем хвосты ссылки «Поделиться»: ?si=…, #…
+        val t = input.trim().substringBefore("?").substringBefore("#").removeSuffix("/")
         val id = Regex("""(UC[\w-]{22})""").find(t)?.value
         return when {
             id != null -> "https://www.youtube.com/channel/$id"
