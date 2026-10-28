@@ -34,6 +34,33 @@ data class AppSettings(
     val youtubeConnected: Boolean = false,
     /** Ссылка или @имя канала для режима открытых данных. */
     val youtubeChannelInput: String = "",
+    // ----- Этап 3 -----
+    val notifyGoals: Boolean = true,
+    val notifyChanges: Boolean = true,
+    /** ИИ: адрес OpenAI-совместимого API и модель. Ключ хранится отдельно, в зашифрованном виде. */
+    val aiBaseUrl: String = "",
+    val aiModel: String = "",
+    /** Цели заработка в месяц. */
+    val incomeGoalRub: Long = 0,
+    val incomeGoalUsd: Long = 0,
+    /** Показатели для YPP, которые без входа Google вводятся вручную из YouTube Studio. */
+    val yppWatchHours: Long = 0,
+    val yppShortsViews90: Long = 0,
+    val checklist: List<String> = DEFAULT_CHECKLIST,
+    val checklistDone: List<Int> = emptyList(),
+)
+
+val DEFAULT_CHECKLIST = listOf(
+    "Название понятно и цепляет (EN)",
+    "Описание: о чём видео + название игры",
+    "3–5 хештегов, включая #shorts для Shorts",
+    "Ключевые слова / теги добавлены",
+    "Обложка выбрана (для длинных видео)",
+    "Плейлист выбран",
+    "Ограничение по возрасту и «Для детей» указаны",
+    "Конечная заставка / ссылка на следующую часть",
+    "Время публикации совпадает с планом",
+    "Публикация отмечена в календаре",
 )
 
 val AppJson = Json {

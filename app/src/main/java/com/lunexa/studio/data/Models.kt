@@ -92,3 +92,50 @@ data class ChannelSnapshot(
     val videoCount: Long,
     val note: String = "",
 )
+
+// ---------- Этап 3 ----------
+
+@Serializable enum class GoalType { SUBSCRIBERS, VIEWS, VIDEOS, STREAK, CUSTOM }
+
+@Serializable
+@Entity(tableName = "goals")
+data class Goal(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val type: GoalType = GoalType.SUBSCRIBERS,
+    /** Название — только для собственных целей; для остальных строится автоматически. */
+    val title: String = "",
+    val target: Long,
+    /** Текущее значение собственной цели (вводится вручную). */
+    val manualProgress: Long = 0,
+    val createdAt: Long = System.currentTimeMillis(),
+    val achievedAt: Long? = null,
+)
+
+@Serializable enum class Currency { RUB, USD }
+
+@Serializable
+@Entity(tableName = "incomes")
+data class Income(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val dateEpochDay: Long,
+    val amount: Double,
+    val currency: Currency = Currency.RUB,
+    val source: String = "",
+    /** true — деньги получены (подтверждено), false — оценка/ожидание. */
+    val confirmed: Boolean = true,
+    val note: String = "",
+)
+
+@Serializable enum class SeoKind { TITLE, DESCRIPTION, HASHTAGS, KEYWORDS }
+
+@Serializable
+@Entity(tableName = "seo")
+data class SeoItem(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val kind: SeoKind = SeoKind.TITLE,
+    val title: String = "",
+    val text: String,
+    val gameId: Long? = null,
+    val lang: String = "en",
+    val createdAt: Long = System.currentTimeMillis(),
+)

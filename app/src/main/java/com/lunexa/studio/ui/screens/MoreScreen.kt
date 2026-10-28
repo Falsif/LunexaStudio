@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SportsEsports
@@ -62,11 +63,12 @@ fun MoreScreen(nav: NavHostController) {
             item { MoreItem(Icons.Outlined.TaskAlt, tr("Задачи", "Tasks"), tr("Активных: $open", "Open: $open")) { nav.navigate(Routes.TASKS) } }
             item { MoreItem(Icons.Outlined.Settings, tr("Настройки", "Settings"), tr("Язык, часовой пояс, уведомления, резервная копия", "Language, time zone, notifications, backup")) { nav.navigate(Routes.SETTINGS) } }
 
-            item { SectionTitle(tr("В разработке", "Coming next")) }
-            item { MoreItem(Icons.Outlined.AutoAwesome, tr("ИИ-помощник", "AI assistant"), tr("Идеи, названия, описания, перевод", "Ideas, titles, descriptions, translation"), stage = 3) }
-            item { MoreItem(Icons.Outlined.Flag, tr("Цели и достижения", "Goals & achievements"), tr("Цель по подписчикам уже есть на главной", "Subscriber goal is already on Home"), stage = 3) }
-            item { MoreItem(Icons.Outlined.Payments, tr("Монетизация", "Monetization"), tr("Прогресс к YouTube Partner Program", "Progress to YouTube Partner Program"), stage = 3) }
-            item { MoreItem(Icons.Outlined.Tag, tr("SEO и тексты", "SEO & copy"), tr("Шаблоны описаний, хештеги, чек-лист", "Description templates, hashtags, checklist"), stage = 3) }
+            item { SectionTitle(tr("Рост канала", "Channel growth")) }
+            item { MoreItem(Icons.Outlined.AutoAwesome, tr("ИИ-помощник", "AI assistant"), tr("Идеи, названия на английском, описания, перевод", "Ideas, English titles, descriptions, translation")) { nav.navigate(Routes.AI) } }
+            item { MoreItem(Icons.Outlined.Insights, tr("Что работает лучше", "What works best"), tr("Игры, форматы и дни, которые дают просмотры", "Games, formats and days that bring views")) { nav.navigate(Routes.ANALYSIS) } }
+            item { MoreItem(Icons.Outlined.Flag, tr("Цели и достижения", "Goals & achievements"), tr("Подписчики, просмотры, серии публикаций", "Subscribers, views, upload streaks")) { nav.navigate(Routes.GOALS) } }
+            item { MoreItem(Icons.Outlined.Tag, tr("SEO и тексты", "SEO & copy"), tr("Шаблоны названий и описаний, хештеги, чек-лист", "Title & description templates, hashtags, checklist")) { nav.navigate(Routes.SEO) } }
+            item { MoreItem(Icons.Outlined.Payments, tr("Монетизация", "Monetization"), tr("Прогресс к YPP и учёт доходов", "YPP progress and income tracking")) { nav.navigate(Routes.MONETIZATION) } }
         }
     }
 }

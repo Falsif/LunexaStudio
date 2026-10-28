@@ -65,6 +65,11 @@ object Routes {
     const val GAMES = "games"
     const val TASKS = "tasks"
     const val SETTINGS = "settings"
+    const val GOALS = "goals"
+    const val ANALYSIS = "analysis"
+    const val MONETIZATION = "monetization"
+    const val SEO = "seo"
+    const val AI = "ai"
 
     fun game(id: Long) = "game/$id"
     fun idea(id: Long, gameId: Long = 0) = "idea/$id?game=$gameId"
@@ -164,6 +169,11 @@ fun LunexaRoot(repo: Repository) {
                     composable(Routes.GAMES) { GamesScreen(nav) }
                     composable(Routes.TASKS) { TasksScreen(nav) }
                     composable(Routes.SETTINGS) { SettingsScreen(nav) }
+                    composable(Routes.GOALS) { com.lunexa.studio.ui.screens.GoalsScreen(nav) }
+                    composable(Routes.ANALYSIS) { com.lunexa.studio.ui.screens.AnalysisScreen(nav) }
+                    composable(Routes.MONETIZATION) { com.lunexa.studio.ui.screens.MonetizationScreen(nav) }
+                    composable(Routes.SEO) { com.lunexa.studio.ui.screens.SeoScreen(nav) }
+                    composable(Routes.AI) { com.lunexa.studio.ui.screens.AiScreen(nav) }
                     composable("game/{id}", listOf(navArgument("id") { type = NavType.LongType })) {
                         GameEditScreen(nav, it.arguments?.getLong("id") ?: 0L)
                     }

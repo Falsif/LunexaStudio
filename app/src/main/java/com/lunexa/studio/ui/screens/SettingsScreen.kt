@@ -201,6 +201,8 @@ fun SettingsScreen(nav: NavHostController) {
                     SwitchRow(tr("О приближающихся публикациях", "Upcoming uploads"), s.notifyPublications) { on -> update(true) { it.copy(notifyPublications = on) } }
                     SwitchRow(tr("О сроках задач", "Task deadlines"), s.notifyTasks) { on -> update(true) { it.copy(notifyTasks = on) } }
                     SwitchRow(tr("Еженедельная проверка статистики (пн, 10:00)", "Weekly stats check (Mon, 10:00)"), s.notifyWeekly) { on -> update(true) { it.copy(notifyWeekly = on) } }
+                    SwitchRow(tr("О выполнении целей", "Goals reached"), s.notifyGoals) { on -> update { it.copy(notifyGoals = on) } }
+                    SwitchRow(tr("О важных изменениях канала", "Important channel changes"), s.notifyChanges) { on -> update { it.copy(notifyChanges = on) } }
                     Spacer(Modifier.height(6.dp))
                     DropdownField(
                         tr("Напоминание о публикации по умолчанию", "Default upload reminder"), ReminderOptions, s.defaultReminderMin,
@@ -241,7 +243,7 @@ fun SettingsScreen(nav: NavHostController) {
                     style = MaterialTheme.typography.bodySmall, color = LX.Muted)
                 Spacer(Modifier.height(10.dp))
                 Text(tr("ИИ-помощник", "AI assistant"), style = MaterialTheme.typography.titleSmall)
-                Text(tr("Этап 3: собственный API-ключ или защищённый сервер. Ключи не будут вшиты в APK.", "Stage 3: your own API key or a secure server. Keys won't be bundled in the APK."),
+                Text(tr("Настраивается в «Ещё → ИИ-помощник»: свой ключ хранится зашифрованным, в APK ничего не вшито.", "Set up in More → AI assistant: your key is stored encrypted, nothing is bundled in the APK."),
                     style = MaterialTheme.typography.bodySmall, color = LX.Muted)
             }
 

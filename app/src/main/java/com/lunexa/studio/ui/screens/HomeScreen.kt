@@ -97,6 +97,9 @@ fun HomeScreen(nav: NavHostController) {
     val views28 = ytDelta(28, ytc?.viewsLast(28)) ?: Stats.delta(snaps, 28) { it.totalViews }
     val subs28 = ytDelta(28, ytc?.subsNetLast(28)) ?: Stats.delta(snaps, 28) { it.subscribers }
 
+    val goalNumbers = rememberChannelNumbers()
+    androidx.compose.runtime.LaunchedEffect(goalNumbers) { repo.checkGoals(goalNumbers) }
+
     val active = setOf(PubStatus.PLANNED, PubStatus.READY)
     val next = pubs.filter { it.scheduledAt >= now && it.status in active }.minByOrNull { it.scheduledAt }
     val lastPublished = pubs.filter { it.status == PubStatus.PUBLISHED }.maxByOrNull { it.scheduledAt }

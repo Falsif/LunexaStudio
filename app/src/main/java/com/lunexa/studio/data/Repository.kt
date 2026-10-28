@@ -29,6 +29,9 @@ data class Backup(
     val publications: List<Publication> = emptyList(),
     val tasks: List<TaskItem> = emptyList(),
     val snapshots: List<ChannelSnapshot> = emptyList(),
+    val goals: List<Goal> = emptyList(),
+    val incomes: List<Income> = emptyList(),
+    val seo: List<SeoItem> = emptyList(),
 )
 
 const val BACKUP_FORMAT = "lunexa-studio-backup"
@@ -233,8 +236,9 @@ class Repository(
         val zone = zoneOf(s.timezone)
         val cache = YouTubeApi.fetch(token, zone)
         withContext(Dispatchers.IO) { YouTubeStore.save(context, cache) }
+        val prev = _yt.value
         _yt.value = cache
-        syncLinkedViews(cache)
+        afterSync(prev, cache)
         store.update { it.copy(youtubeConnected = true, channelName = cache.title) }
         // Снимок на сегодня — чтобы график роста на главной строился из реальных данных.
         if (!cache.hiddenSubscribers) {
@@ -252,16 +256,86 @@ class Repository(
     suspend fun youtubePublicSync(input: String): YtCache {
         val cache = YouTubePublic.fetch(input)
         withContext(Dispatchers.IO) { YouTubeStore.save(context, cache) }
+        val prev = _yt.value
         _yt.value = cache
-        syncLinkedViews(cache)
+        afterSync(prev, cache)
         store.update { it.copy(youtubeConnected = true, youtubeChannelInput = input.trim(), channelName = cache.title) }
         return cache
     }
 
-    /** Просмотры связанных публикаций обновляются из данных канала. */
-    private suspend fun syncLinkedViews(cache: YtCache) {
+    /** После синхронизации: просмотры связанных публикаций + уведомления о важных изменениях. */
+    private suspend fun afterSync(prev: YtCache?, cache: YtCache) {
         cache.videos.forEach { v -> db.pubs().updateViewsByVideo(v.id, v.views) }
+        val s = store.current()
+        if (prev == null || prev.channelId != cache.channelId || !s.notificationsEnabled || !s.notifyChanges) return
+        val en = s.language == "en"
+        if (!prev.hiddenSubscribers && !cache.hiddenSubscribers && prev.subscribers != cache.subscribers) {
+            val diff = cache.subscribers - prev.subscribers
+            com.lunexa.studio.notify.Notifier.post(
+                context, 5,
+                if (en) "Subscribers: ${Fmt.signed(diff)}" else "Подписчики: ${Fmt.signed(diff)}",
+                if (en) "${prev.subscribers} → ${cache.subscribers}" else "${prev.subscribers} → ${cache.subscribers}",
+            )
+        }
+        val old = prev.videos.associateBy { it.id }
+        val jump = cache.videos.mapNotNull { v ->
+            val o = old[v.id] ?: return@mapNotNull null
+            val d = v.views - o.views
+            if (d >= 20 && d >= o.views / 2) v to d else null
+        }.maxByOrNull { it.second }
+        if (jump != null) {
+            com.lunexa.studio.notify.Notifier.post(
+                context, 6,
+                if (en) "A video is taking off: +${Fmt.number(jump.second)} views" else "Ролик набирает обороты: +${Fmt.number(jump.second)} просмотров",
+                jump.first.title,
+            )
+        }
     }
+
+    // ---------- Цели ----------
+    val goals = db.goals().observeAll()
+
+    suspend fun saveGoal(g: Goal): Long = if (g.id == 0L) db.goals().insert(g) else { db.goals().update(g); g.id }
+    suspend fun deleteGoal(g: Goal) = db.goals().delete(g)
+
+    suspend fun addPresetGoals() {
+        val existing = db.goals().all().map { it.type to it.target }.toSet()
+        Goals.presets.filter { it !in existing }.forEach { (t, v) -> db.goals().insert(Goal(type = t, target = v)) }
+    }
+
+    /** Отмечает выполненные цели и присылает уведомление. */
+    suspend fun checkGoals(n: ChannelNumbers) {
+        val s = store.current()
+        val en = s.language == "en"
+        db.goals().all().filter { it.achievedAt == null }.forEach { g ->
+            val cur = Goals.current(g, n) ?: return@forEach
+            if (g.target > 0 && cur >= g.target) {
+                db.goals().update(g.copy(achievedAt = System.currentTimeMillis()))
+                if (s.notificationsEnabled && s.notifyGoals) {
+                    com.lunexa.studio.notify.Notifier.post(
+                        context, 1000 + (g.id % 1000).toInt(),
+                        if (en) "Goal reached! 🏆" else "Цель выполнена! 🏆",
+                        goalTitle(g, s.language),
+                    )
+                }
+            }
+        }
+    }
+
+    // ---------- Доходы ----------
+    val incomes = db.incomes().observeAll()
+    suspend fun saveIncome(i: Income): Long = if (i.id == 0L) db.incomes().insert(i) else { db.incomes().update(i); i.id }
+    suspend fun deleteIncome(i: Income) = db.incomes().delete(i)
+
+    // ---------- SEO ----------
+    val seo = db.seo().observeAll()
+    suspend fun saveSeo(i: SeoItem): Long = if (i.id == 0L) db.seo().insert(i) else { db.seo().update(i); i.id }
+    suspend fun deleteSeo(i: SeoItem) = db.seo().delete(i)
+
+    // ---------- ИИ ----------
+    fun aiKey(): String? = SecretStore.get(context, AiClient.KEY_NAME)
+    fun hasAiKey(): Boolean = SecretStore.has(context, AiClient.KEY_NAME)
+    fun setAiKey(key: String?) = SecretStore.put(context, AiClient.KEY_NAME, key)
 
     suspend fun youtubeDisconnect() {
         lastToken?.let { YouTubeApi.revoke(it) }
@@ -280,13 +354,17 @@ class Repository(
             publications = db.pubs().all(),
             tasks = db.tasks().all(),
             snapshots = db.snapshots().all(),
+            goals = db.goals().all(),
+            incomes = db.incomes().all(),
+            seo = db.seo().all(),
         )
         val text = AppJson.encodeToString(Backup.serializer(), backup)
         val stream = runCatching { context.contentResolver.openOutputStream(uri, "wt") }.getOrNull()
             ?: context.contentResolver.openOutputStream(uri, "w")
             ?: throw IllegalStateException("Cannot open file for writing")
         stream.use { it.write(text.toByteArray(Charsets.UTF_8)) }
-        backup.games.size + backup.ideas.size + backup.publications.size + backup.tasks.size + backup.snapshots.size
+        backup.games.size + backup.ideas.size + backup.publications.size + backup.tasks.size + backup.snapshots.size +
+            backup.goals.size + backup.incomes.size + backup.seo.size
     }
 
     /** Полностью заменяет данные содержимым файла. Бросает исключение при неверном формате. */
@@ -307,6 +385,10 @@ class Repository(
             db.pubs().insertAll(backup.publications)
             db.tasks().insertAll(backup.tasks)
             db.snapshots().insertAll(backup.snapshots)
+            db.goals().clear(); db.incomes().clear(); db.seo().clear()
+            db.goals().insertAll(backup.goals)
+            db.incomes().insertAll(backup.incomes)
+            db.seo().insertAll(backup.seo)
         }
         store.update { backup.settings }
         rescheduleAll()
