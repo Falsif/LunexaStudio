@@ -18,7 +18,18 @@ jobs:
         with:
           gradle-version: '8.10.2'
       - name: Build debug + release APK
-        run: gradle assembleDebug assembleRelease --stacktrace
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleDebug assembleRelease --console=plain 2>&1 | tee build.log
+      - name: Report build errors
+        if: failure()
+        shell: bash
+        run: |
+          # Выводим ошибки как аннотации, чтобы их было видно на странице сборки
+          grep -E "^e: |error:|What went wrong|Could not|Execution failed|> " build.log | head -60 | while IFS= read -r line; do
+            echo "::error::${line//%/%25}"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: LUNEXA-Studio-APK
